@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -17,8 +18,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using WebApplication1.Data;
+using WebApplication1.Managers;
 using WebApplication1.Models;
 using WebApplication1.Services;
+using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace WebApplication1
 {
@@ -35,12 +38,17 @@ namespace WebApplication1
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddDbContext<ApplicationDbContext>(options =>
-                    options.UseNpgsql(Configuration.GetConnectionString("DBContext"))
-                           .UseSnakeCaseNamingConvention()
-                    );
+            {
+            options.UseNpgsql(Configuration.GetConnectionString("DBContext"))
+                .UseSnakeCaseNamingConvention();
+                   
+                // to replace the default OpenIddict entities.
+                options.UseOpenIddict();
+            });
 
             services.AddIdentity<IdentityUser, IdentityRole>()
                 .AddEntityFrameworkStores<ApplicationDbContext>()
+                .AddDefaultUI()
                 .AddDefaultTokenProviders();
 
             services.AddControllers();
@@ -50,11 +58,73 @@ namespace WebApplication1
             });
             services.AddSingleton<MovieSingleton>();
 
-
+            services.AddScoped<UsuarioManager>();
             services.AddScoped<IGenericCRUD<Movie>, GenericCRUD<Movie>>();
             services.AddScoped<IGenericCRUD<Category>, GenericCRUD<Category>>();
 
-            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+
+            #region openidict core
+
+            // Configure Identity to use the same JWT claims as OpenIddict instead
+            // of the legacy WS-Federation claims it uses by default (ClaimTypes),
+            // which saves you from doing the mapping in your authorization controller.
+            services.Configure<IdentityOptions>(options =>
+            {
+                options.ClaimsIdentity.UserNameClaimType = Claims.Name;
+                options.ClaimsIdentity.UserIdClaimType = Claims.Subject;
+                options.ClaimsIdentity.RoleClaimType = Claims.Role;
+            });
+
+            services.AddOpenIddict()
+
+                // Register the OpenIddict core components.
+                .AddCore(options =>
+                {
+                    // Configure OpenIddict to use the Entity Framework Core stores and models.
+                    // Note: call ReplaceDefaultEntities() to replace the default entities.
+                    options.UseEntityFrameworkCore()
+                           .UseDbContext<ApplicationDbContext>();
+                })
+
+                // Register the OpenIddict server components.
+                .AddServer(options =>
+                {
+                    // Enable the token endpoint.
+                    options.SetTokenEndpointUris("/connect/token");
+                    //options.DisableAccessTokenEncryption();
+
+                    // Enable the password and client credentials flow.
+                    options
+                        .AllowPasswordFlow()
+                        .AllowClientCredentialsFlow();
+
+                    // Register the signing and encryption credentials.
+                    options.AddDevelopmentEncryptionCertificate()
+                          .AddDevelopmentSigningCertificate();
+
+                    // Register the ASP.NET Core host and configure the ASP.NET Core options.
+                    options.UseAspNetCore()
+                          .EnableTokenEndpointPassthrough();
+                })
+
+                // Register the OpenIddict validation components.
+                .AddValidation(options =>
+                {
+                    // Import the configuration from the local OpenIddict server instance.
+                    options.UseLocalServer();
+
+                    // Register the ASP.NET Core host.
+                    options.UseAspNetCore();
+                });
+            #endregion
+
+
+            services.AddAuthentication(options =>
+                {
+                    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+                    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                })
+                .AddCookie()
                 .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
                 {
                     options.RequireHttpsMetadata = false;
@@ -71,6 +141,21 @@ namespace WebApplication1
                     };
                 });
 
+            services.Configure<IdentityOptions>(options =>
+            {
+                // Password settings
+                options.Password.RequireDigit = true;
+                options.Password.RequiredLength = 6;
+                options.Password.RequireNonAlphanumeric = false;
+                options.Password.RequireUppercase = true;
+                options.Password.RequireLowercase = true;
+            });
+
+            services.AddRazorPages();
+
+            // Workers
+
+            services.AddHostedService<Worker>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -84,6 +169,7 @@ namespace WebApplication1
             }
 
             app.UseHttpsRedirection();
+            app.UseStaticFiles();
 
             app.UseRouting();
 
@@ -94,6 +180,7 @@ namespace WebApplication1
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
+                endpoints.MapRazorPages();
             });
         }
     }

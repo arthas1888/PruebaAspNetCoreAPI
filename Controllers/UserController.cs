@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -13,6 +15,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using WebApplication1.Data;
+using WebApplication1.Managers;
 using WebApplication1.Models;
 using WebApplication1.Models.ViewModels;
 using WebApplication1.Utilities;
@@ -21,15 +24,18 @@ namespace WebApplication1.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public class UserController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly UsuarioManager _usuarioManager;
         private readonly IConfiguration _config;
 
-        public UserController(ApplicationDbContext context, IConfiguration config)
+        public UserController(ApplicationDbContext context, IConfiguration config, UsuarioManager usuarioManager)
         {
             _context = context;
             _config = config;
+            _usuarioManager = usuarioManager;
         }
 
         // GET: api/USER
@@ -37,7 +43,7 @@ namespace WebApplication1.Controllers
         [Authorize(Roles = "ADMIN")]
         public async Task<ActionResult<IEnumerable<UsuarioViewModel>>> GetAll()
         {
-            return Ok(await _context.Usuarios                
+            return Ok(await _context.Usuarios
                 .ToListAsync());
         }
 
@@ -54,6 +60,25 @@ namespace WebApplication1.Controllers
             model.Password = model.Password.EncryptHash256();
             _context.Usuarios.Add(model);
             _context.SaveChangesAsync();
+            return Ok();
+        }
+
+        // POST api/user/RegisterUser
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="model"></param>
+        /// <returns></returns>
+        [HttpPost("[action]")]
+        [Authorize(Roles = "ADMIN")]
+        public async Task<IActionResult> RegisterUser(Usuario model)
+        {
+            var res = await _usuarioManager.Register(model);
+            if (!res.Succeeded)
+            {
+                res.Errors.ToList().ForEach(x => ModelState.AddModelError(x.Code, x.Description));
+                return BadRequest(ModelState);
+            }
             return Ok();
         }
 
@@ -83,6 +108,32 @@ namespace WebApplication1.Controllers
             }); // 200
         }
 
+        // POST api/user/LoginUser
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="model"></param>
+        /// <returns></returns>
+        [HttpPost("[action]")]
+        [AllowAnonymous]
+        public async Task<IActionResult> LoginUser(LoginViewModel model)
+        {
+            var res = await _usuarioManager.Login(model);
+            if (res == null) return NotFound(); // 404
+            if (res is Microsoft.AspNetCore.Identity.SignInResult @sign)
+                if (!@sign.Succeeded)
+                {
+                    if (@sign.IsLockedOut) ModelState.AddModelError("Error", "IsLockedOut");
+                    if (@sign.IsNotAllowed) ModelState.AddModelError("Error", "IsNotAllowed");
+                    return BadRequest(ModelState);
+                }
+            var accessToken = GenerateJWT(res as IdentityUser);
+            return Ok(new
+            {
+                AccessToken = accessToken
+            }); // 200
+        }
+
         #region helper
         /// <summary>
         /// Json Web Token
@@ -93,6 +144,25 @@ namespace WebApplication1.Controllers
             {
                 new Claim(ClaimTypes.Name, model.Name),
                 new Claim(ClaimTypes.Role, model.Role.ToString()),
+                new Claim(ClaimTypes.NameIdentifier, model.Email),
+            };
+
+            var key = Encoding.ASCII.GetBytes(_config["TokenValidationParameters:IssuerSigningKey"]);
+            var credentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature);
+            var token = new JwtSecurityToken(
+                  _config["TokenValidationParameters:Issuer"],
+                  _config["TokenValidationParameters:Audience"],
+                  claims,
+                  expires: DateTime.UtcNow.AddMinutes(60),
+                  signingCredentials: credentials);
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        private string GenerateJWT(IdentityUser model)
+        {
+            var claims = new[]
+            {
                 new Claim(ClaimTypes.NameIdentifier, model.Email),
             };
 

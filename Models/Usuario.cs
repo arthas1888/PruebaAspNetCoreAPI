@@ -36,6 +36,8 @@ namespace WebApplication1.Models
         [StringLength(255)]
         [Required]
         public string Email { get; set; }
+
+      
         [StringLength(255)]
         [Required]
         public string Password { get; set; }
@@ -53,5 +55,12 @@ namespace WebApplication1.Models
         public string LastName { get; set; }
 
         public UserRole Role { get; set; }
+
+
+        [NotMapped]
+        [Phone]
+        public string Phone { get; set; }
+
+
     }
 }
