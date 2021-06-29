@@ -9,7 +9,7 @@ using WebApplication1.Models;
 
 namespace WebApplication1.Data
 {
-    public class ApplicationDbContext : IdentityDbContext<IdentityUser>
+    public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     {
         public DbSet<Movie> Movies { get; set; }
         public DbSet<Category> Categories { get; set; }

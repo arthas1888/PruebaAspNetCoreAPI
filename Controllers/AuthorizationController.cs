@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using WebApplication1.Models;
 using static OpenIddict.Abstractions.OpenIddictConstants;
 
 namespace WebApplication1.Controllers
@@ -20,12 +21,12 @@ namespace WebApplication1.Controllers
     public class AuthorizationController : ControllerBase
     {
         private readonly IOpenIddictApplicationManager _applicationManager;
-        private readonly UserManager<IdentityUser> _userManager;
-        private readonly SignInManager<IdentityUser> _signInManager;
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly SignInManager<ApplicationUser> _signInManager;
 
         public AuthorizationController(IOpenIddictApplicationManager applicationManager,
-             UserManager<IdentityUser> userManager,
-             SignInManager<IdentityUser> signInManager)
+             UserManager<ApplicationUser> userManager,
+             SignInManager<ApplicationUser> signInManager)
         {
             _userManager = userManager;
             _applicationManager = applicationManager;

@@ -12,8 +12,8 @@ namespace WebApplication1.Managers
     public class UsuarioManager
     {
         public readonly ApplicationDbContext _context;
-        public readonly UserManager<IdentityUser> _userManager;
-        public readonly SignInManager<IdentityUser> _signInManager;
+        public readonly UserManager<ApplicationUser> _userManager;
+        public readonly SignInManager<ApplicationUser> _signInManager;
 
         /// <summary>
         /// 
@@ -22,8 +22,8 @@ namespace WebApplication1.Managers
         /// <param name="userManager"></param>
         /// <param name="signInManager"></param>
         public UsuarioManager(ApplicationDbContext context,
-            UserManager<IdentityUser> userManager,
-            SignInManager<IdentityUser> signInManager)
+            UserManager<ApplicationUser> userManager,
+            SignInManager<ApplicationUser> signInManager)
         {
             _context = context;
             _userManager = userManager;
@@ -37,11 +37,13 @@ namespace WebApplication1.Managers
         /// <returns></returns>
         public async Task<IdentityResult> Register(Usuario model)
         {
-            return await _userManager.CreateAsync(new IdentityUser
+            return await _userManager.CreateAsync(new ApplicationUser
             {
                 Email = model.Email,
                 UserName = model.Email,
-                PhoneNumber = model.Phone
+                PhoneNumber = model.Phone,
+                Name = model.Name,
+                LastName = model.LastName,
             }, model.Password);
         }
 

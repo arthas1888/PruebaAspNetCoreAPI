@@ -127,7 +127,7 @@ namespace WebApplication1.Controllers
                     if (@sign.IsNotAllowed) ModelState.AddModelError("Error", "IsNotAllowed");
                     return BadRequest(ModelState);
                 }
-            var accessToken = GenerateJWT(res as IdentityUser);
+            var accessToken = GenerateJWT(res as ApplicationUser);
             return Ok(new
             {
                 AccessToken = accessToken
@@ -159,7 +159,7 @@ namespace WebApplication1.Controllers
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        private string GenerateJWT(IdentityUser model)
+        private string GenerateJWT(ApplicationUser model)
         {
             var claims = new[]
             {

@@ -1,3 +1,6 @@
+using GraphQL;
+using GraphQL.SystemTextJson;
+using GraphQL.Types;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
@@ -18,6 +21,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using WebApplication1.Data;
+using WebApplication1.Graphql;
+using WebApplication1.Graphql.Models;
 using WebApplication1.Managers;
 using WebApplication1.Models;
 using WebApplication1.Services;
@@ -39,14 +44,14 @@ namespace WebApplication1
         {
             services.AddDbContext<ApplicationDbContext>(options =>
             {
-            options.UseNpgsql(Configuration.GetConnectionString("DBContext"))
-                .UseSnakeCaseNamingConvention();
-                   
+                options.UseNpgsql(Configuration.GetConnectionString("DBContext"))
+                    .UseSnakeCaseNamingConvention();
+
                 // to replace the default OpenIddict entities.
                 options.UseOpenIddict();
             });
 
-            services.AddIdentity<IdentityUser, IdentityRole>()
+            services.AddIdentity<ApplicationUser, IdentityRole>()
                 .AddEntityFrameworkStores<ApplicationDbContext>()
                 .AddDefaultUI()
                 .AddDefaultTokenProviders();
@@ -57,6 +62,23 @@ namespace WebApplication1
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "WebApplication1", Version = "v1" });
             });
             services.AddSingleton<MovieSingleton>();
+
+
+            #region graphql
+
+
+            services.AddSingleton<IDocumentExecuter, DocumentExecuter>();
+            services.AddSingleton<IDocumentWriter, DocumentWriter>();
+
+            services.AddScoped<CustomQuery>();
+            // models
+            services.AddSingleton<MovieType>();
+            services.AddSingleton<CategoryType>();
+
+            services.AddScoped<ISchema, CustomSchema>();
+
+
+            #endregion
 
             services.AddScoped<UsuarioManager>();
             services.AddScoped<IGenericCRUD<Movie>, GenericCRUD<Movie>>();
