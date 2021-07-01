@@ -61,7 +61,7 @@ namespace WebApplication1.Controllers
                 options.CancellationToken = CancellationToken.None;
             });
             await WriteResponseAsync(HttpContext, result, CancellationToken.None);
-            Console.WriteLine($"response ===================  { result.Data}");           
+            //Console.WriteLine($"response ===================  { result.Data}");           
         }
 
         // POST: api/GraphQL/v1
